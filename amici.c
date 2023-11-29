@@ -7,6 +7,9 @@
 
 char *strdup(const char *str);
 
+int num_accounts = 0;
+int num_friendships = 0;
+
 // Define a structure to represent a person
 typedef struct person_s {
     char *name;                 // Name of the person
@@ -92,7 +95,16 @@ void unfriend(person_t *person, person_t *enemy){
 void freePerson(person_t *person) {
     free(person->name);
     free(person->handle);
+
+    // Free each friend individually
+    for (size_t i = 0; i < person->friend_count; ++i) {
+        freePerson(person->friends[i]);
+    }
+
+    // Free the friends array
     free(person->friends);
+
+    // Finally, free the person structure itself
     free(person);
 }
 
@@ -123,7 +135,6 @@ void delete_person(void *key, void *value) {
 }
 
 void print_person(const void *key, const void *value) {
-    
     // Implement your print function for person handles
     printf("Person: %s\n", (const char *)key);
 }
@@ -136,47 +147,88 @@ void printAmici(person_t *person) {
     }
 }
 
+void printFriendCount(const char *handle, const char *name, size_t friendCount) {
+    if (friendCount == 0) {
+        printf("%s (%s) has no friends\n", handle, name);
+    } else {
+        printf("%s (%s) has %zu friend%s\n", handle, name, friendCount, (friendCount == 1) ? "" : "s");
+    }
+}
+
 void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, char *arg3) {
     printf("Debug: Processing command - Command: %s", command);
 
-    if (arg1 != NULL) {
+    if (arg1[0] != '\0') {
         printf(", Arg1: %s", arg1);
     }
 
-    if (arg2 != NULL) {
+    if (arg2[0] != '\0') {
         printf(", Arg2: %s", arg2);
     }
 
-    if (arg3 != NULL) {
+    if (arg3[0] != '\0') {
         printf(", Arg3: %s", arg3);
     }
 
     printf("\n");
 
-    if (strcmp(command, "add")==0){
-        char *full_name = malloc(strlen(arg1) + strlen(arg2) + 2);
-        strcpy(full_name, arg1);
-        strcat(full_name, " ");
-        strcat(full_name, arg2);
+   
+    if (strcmp(command, "add") == 0) {
+        if (arg1[0] == '\0' || arg2[0] == '\0' || arg3[0] == '\0') {
+            fprintf(stderr, "error: add command requires three arguments\n");
+            return;
+        }
+
+    const person_t *existing_person = ht_get(amici_table, arg3);
+        if (existing_person != NULL) {
+            fprintf(stderr, "error: handle \"%s\" is already in use\n", arg3);
+            return;
+        }
+
+    num_accounts ++;
+    char *full_name = malloc(strlen(arg1) + strlen(arg2) + 2);
+    strcpy(full_name, arg1);
+    strcat(full_name, " ");
+    strcat(full_name, arg2);
 
 
-        person_t *new_person = initializePerson(full_name, arg3);
-        ht_put(amici_table, new_person->handle, new_person);
+    person_t *new_person = initializePerson(full_name, arg3);
+    ht_put(amici_table, new_person->handle, new_person);
 
-        printf("yuh\n");
-    }
-    if (strcmp(command, "print")==0){
+    } if (strcmp(command, "print")==0){
+        if (arg1[0] == '\0') {
+            fprintf(stderr, "error: print command requires a handle argument\n");
+            return;
+        }
+
         const person_t *const_person = ht_get(amici_table, arg1);
+        if (const_person == NULL) {
+            fprintf(stderr, "error: handle \"%s\" not found\n", arg1);
+            return;
+        }
+
         person_t *person = (person_t *)const_person;
+
 
         ht_dump(amici_table, true);
         printf("\n");
         printf("\n");
         printAmici(person);
-    }
-    if(strcmp(command, "friend")==0){
+    } if(strcmp(command, "friend")==0){
+
+
+        if (arg1[0] == '\0' || arg2[0] == '\0') {
+            fprintf(stderr, "error: friend command requires two arguments\n");
+            return;
+        }
+
         const person_t *const_requester = ht_get(amici_table, arg1);
         const person_t *const_receiver = ht_get(amici_table, arg2);
+
+        if (const_requester == NULL || const_receiver == NULL) {
+            fprintf(stderr, "error: one or more handles not found\n");
+            return;
+        }
 
         person_t *requester = (person_t *)const_requester;
         person_t *receiver = (person_t *)const_receiver;
@@ -184,23 +236,65 @@ void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, 
         addFriend(requester, receiver);
         addFriend(receiver, requester);
 
+        // NOTE: NEED TO CHECK IF FRIENDSHIPS ALREADY EXIST
+
         printf("%s and %s are now friends\n", requester->handle, receiver->handle);
-    }
-    if(strcmp(command, "unfriend")==0){
+        num_friendships ++;
+    } if(strcmp(command, "unfriend")==0){
+
+        if (arg1[0] == '\0' || arg2[0] == '\0') {
+            fprintf(stderr, "error: unfriend command requires two arguments\n");
+            return;
+        }
+
         const person_t *const_requester = ht_get(amici_table, arg1);
         const person_t *const_receiver = ht_get(amici_table, arg2);
+
+        if (const_requester == NULL || const_receiver == NULL) {
+            fprintf(stderr, "error: one or more handles not found\n");
+            return;
+        }
 
         person_t *requester = (person_t *)const_requester;
         person_t *receiver = (person_t *)const_receiver;
 
         unfriend(requester, receiver);
         unfriend(receiver, requester);
+    }
+    if(strcmp(command, "size")==0){
 
+        if (arg1[0] == '\0') {
+            fprintf(stderr, "error: size command requires a handle argument\n");
+            return;
+        }
+ 
+        const person_t *const_person = ht_get(amici_table, arg1);
         
+        if (const_person == NULL) {
+            fprintf(stderr, "error: handle \"%s\" not found\n", arg1);
+            return;
+        }
+        
+        person_t *person = (person_t *)const_person;
+
+        printFriendCount(person->handle, person->name, person->friend_count);
+        num_friendships --;
+    } if (strcmp(command, "stats") == 0) {
+        printf("Statistics: ");
+        printf("%d %s %d %s\n", num_accounts, num_accounts == 1 ? "person" : "people",num_friendships, num_friendships == 1 ? "friendship" : "friendships");
+    } if (strcmp(command, "init") == 0) {
+        // Implement initialization logic here
+
+        ht_destroy(amici_table);
+        num_accounts = 0;
+        num_friendships = 0;
+        printf("System re-initialized\n");
+    } if (strcmp(command, "quit") == 0) {
+        printf("Exiting...\n");
+        ht_destroy(amici_table);
+        exit(EXIT_SUCCESS);
     }
 
-    // Add your logic to handle different commands
-    // For now, we are just printing the processed command
 }
 
 
@@ -233,6 +327,11 @@ int main(int argc, char *argv[]) {
 
             printf("\n");
 
+            memset(command, 0, sizeof(command));
+            memset(arg1, 0, sizeof(arg1));
+            memset(arg2, 0, sizeof(arg2));
+            memset(arg3, 0, sizeof(arg3));
+
             // Parse the input into command and arguments
             if (sscanf(input, "%255s %255s %255s %255s", command, arg1, arg2, arg3) >= 1) { // buffer overflow
                 processCommand(amici_table, command, arg1, arg2, arg3);
@@ -240,7 +339,6 @@ int main(int argc, char *argv[]) {
                 // Free allocated memory
                 
        
-                
             } else {
                 fprintf(stderr, "error: Unable to parse input\n");
             }
@@ -256,6 +354,11 @@ int main(int argc, char *argv[]) {
         while (fgets(input, sizeof(input), stdin) != NULL) {
             char command[256], arg1[256], arg2[256], arg3[256];
 
+
+            memset(command, 0, sizeof(command));
+            memset(arg1, 0, sizeof(arg1));
+            memset(arg2, 0, sizeof(arg2));
+            memset(arg3, 0, sizeof(arg3));
             // Parse the input into command and arguments
             if (sscanf(input, "%255s %255s %255s %255s", command, arg1, arg2, arg3) >= 1) {
                 // Call the processCommand function with the parsed values
