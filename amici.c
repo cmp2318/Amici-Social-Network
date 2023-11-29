@@ -2,9 +2,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+
 
 char *strdup(const char *str);
-
 
 // Define a structure to represent a person
 typedef struct person_s {
@@ -58,84 +59,32 @@ void addFriend(person_t *person, person_t *friend) {
     person->friends[person->friend_count++] = friend;
 }
 
-
-
-/*
-void removeFriend(const char *handle1, const char *handle2) {
-    person_t *person1 = getPerson(handle1);
-    person_t *person2 = getPerson(handle2);
-
-    if (person1 == NULL || person2 == NULL) {
-        fprintf(stderr, "Error: One or more handles are unknown\n");
-        return;
-    }
-
-    // Check if the friendship exists
-    int found1 = 0, found2 = 0;
-    for (size_t i = 0; i < person1->friend_count; ++i) {
-        if (person1->friends[i] == person2) {
-            found1 = 1;
-            break;
-        }
-    }
-
-    for (size_t i = 0; i < person2->friend_count; ++i) {
-        if (person2->friends[i] == person1) {
-            found2 = 1;
-            break;
-        }
-    }
-
-    if (!found1 || !found2) {
-        fprintf(stderr, "Error: Friendship does not exist\n");
-        return;
-    }
-
-    // Remove the friendship
-    person_t **newFriends1 = (person_t **)malloc(person1->friend_count * sizeof(person_t *));
-    person_t **newFriends2 = (person_t **)malloc(person2->friend_count * sizeof(person_t *));
-
-    if (newFriends1 == NULL || newFriends2 == NULL) {
-        perror("Memory allocation error");
-        exit(EXIT_FAILURE);
-    }
-
-    size_t newCount1 = 0, newCount2 = 0;
-
-    for (size_t i = 0; i < person1->friend_count; ++i) {
-        if (person1->friends[i] != person2) {
-            newFriends1[newCount1++] = person1->friends[i];
-        }
-    }
-
-    for (size_t i = 0; i < person2->friend_count; ++i) {
-        if (person2->friends[i] != person1) {
-            newFriends2[newCount2++] = person2->friends[i];
-        }
-    }
-
-    // Update the friendship lists
-    free(person1->friends);
-    free(person2->friends);
-
-    person1->friends = newFriends1;
-    person1->friend_count = newCount1;
-
-    person2->friends = newFriends2;
-    person2->friend_count = newCount2;
-
-    printf("%s and %s are no longer friends\n", handle1, handle2);
-}
-
-// Function to print information about a person
-void printPerson(person_t *person) {
-    printf("%s (%s) has %zu friends\n", person->handle, person->name, person->friend_count);
-
+size_t findFriendIndex(person_t *person, person_t *friend) {
     for (size_t i = 0; i < person->friend_count; ++i) {
-        printf("  →  %s (%s)\n", person->friends[i]->handle, person->friends[i]->name);
+        if (person->friends[i] == friend) {
+            return i;
+        }
+    }
+    return SIZE_MAX; // Indicates friend not found
+}
+
+void unfriend(person_t *person, person_t *enemy){
+
+    size_t enemy_index = findFriendIndex(person, enemy);;
+
+
+
+    
+    if (enemy_index != SIZE_MAX) {
+        // Move the last friend to the removed friend's position
+        person->friends[enemy_index] = person->friends[person->friend_count - 1];
+
+        // Decrement the friend count
+        --person->friend_count;
+    } else {
+        // Friend not found
     }
 }
-*/
 
 
 
@@ -187,44 +136,145 @@ void printAmici(person_t *person) {
     }
 }
 
+void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, char *arg3) {
+    printf("Debug: Processing command - Command: %s", command);
 
-int main() {
+    if (arg1 != NULL) {
+        printf(", Arg1: %s", arg1);
+    }
 
+    if (arg2 != NULL) {
+        printf(", Arg2: %s", arg2);
+    }
+
+    if (arg3 != NULL) {
+        printf(", Arg3: %s", arg3);
+    }
+
+    printf("\n");
+
+    if (strcmp(command, "add")==0){
+        char *full_name = malloc(strlen(arg1) + strlen(arg2) + 2);
+        strcpy(full_name, arg1);
+        strcat(full_name, " ");
+        strcat(full_name, arg2);
+
+
+        person_t *new_person = initializePerson(full_name, arg3);
+        ht_put(amici_table, new_person->handle, new_person);
+
+        printf("yuh\n");
+    }
+    if (strcmp(command, "print")==0){
+        const person_t *const_person = ht_get(amici_table, arg1);
+        person_t *person = (person_t *)const_person;
+
+        ht_dump(amici_table, true);
+        printf("\n");
+        printf("\n");
+        printAmici(person);
+    }
+    if(strcmp(command, "friend")==0){
+        const person_t *const_requester = ht_get(amici_table, arg1);
+        const person_t *const_receiver = ht_get(amici_table, arg2);
+
+        person_t *requester = (person_t *)const_requester;
+        person_t *receiver = (person_t *)const_receiver;
+
+        addFriend(requester, receiver);
+        addFriend(receiver, requester);
+
+        printf("%s and %s are now friends\n", requester->handle, receiver->handle);
+    }
+    if(strcmp(command, "unfriend")==0){
+        const person_t *const_requester = ht_get(amici_table, arg1);
+        const person_t *const_receiver = ht_get(amici_table, arg2);
+
+        person_t *requester = (person_t *)const_requester;
+        person_t *receiver = (person_t *)const_receiver;
+
+        unfriend(requester, receiver);
+        unfriend(receiver, requester);
+
+        
+    }
+
+    // Add your logic to handle different commands
+    // For now, we are just printing the processed command
+}
+
+
+
+
+int main(int argc, char *argv[]) {
     HashADT amici_table = ht_create(hash_person, equals_person, print_person, delete_person);
-    person_t *new_person1 = initializePerson("John Doe", "john123");
-    ht_put(amici_table, new_person1->handle, new_person1);
-
-    person_t *new_person2 = initializePerson("DICKHAVER", "test1234");
-    ht_put(amici_table, new_person2->handle, new_person2);
 
 
+    // Check the number of command-line arguments
+    if (argc < 1 || argc > 2) {
+        fprintf(stderr, "error: usage: %s [datafile]\n", argv[0]);
+        return EXIT_FAILURE;
+    }
 
-    ht_dump(amici_table, true);
+    // Check if a datafile is provided
+    if (argc == 2) {
+        // Process commands from the datafile
+        FILE *file = fopen(argv[1], "r");
+        if (file == NULL) {
+            perror("error");
+            return EXIT_FAILURE;
+        }
 
-    person_t *person1 = ht_get(amici_table, new_person2->handle);
+        char input[1024];
 
-    printAmici(person1);
-
-    
-
-    
-
-
-    //new_person->name = "John Doe";  // Replace with actual names
-    //new_person->handle = "johndoe"; // Replace with actual handles
-
-    //addFriend(john, alice);
-
-    //printPerson(john);
+        while (fgets(input, sizeof(input), file) != NULL) {
+            char command[256], arg1[256], arg2[256], arg3[256];
 
 
-    //removeFriend(john, alice);
+            printf("\n");
 
-    //printPerson(john);
+            // Parse the input into command and arguments
+            if (sscanf(input, "%255s %255s %255s %255s", command, arg1, arg2, arg3) >= 1) { // buffer overflow
+                processCommand(amici_table, command, arg1, arg2, arg3);
 
-    // Free allocated memory
-    //freePerson(john);
-    //freePerson(alice);
+                // Free allocated memory
+                
+       
+                
+            } else {
+                fprintf(stderr, "error: Unable to parse input\n");
+            }
+        }
+
+        fclose(file);
+    } else {
+        // Process commands from the user input
+        char input[1024];
+
+        printf("Amici> ");
+
+        while (fgets(input, sizeof(input), stdin) != NULL) {
+            char command[256], arg1[256], arg2[256], arg3[256];
+
+            // Parse the input into command and arguments
+            if (sscanf(input, "%255s %255s %255s %255s", command, arg1, arg2, arg3) >= 1) {
+                // Call the processCommand function with the parsed values
+                processCommand(amici_table, command, arg1, arg2, arg3);
+
+                // Free allocated memory
+                /*
+                free(command);
+                free(arg1);
+                free(arg2);
+                free(arg3);
+                */
+            } else {
+                fprintf(stderr, "error: Unable to parse input\n");
+            }
+
+            printf("Amici> ");
+        }
+    }
 
     return 0;
 }
