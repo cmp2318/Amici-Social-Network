@@ -1,8 +1,19 @@
+/*
+* File: amici.c
+* Decription: 
+* implements a "social media" system using a hash table adt
+* and allocated "people" within who can friend, unfriend, and print stats
+* 
+* Author: Connor Patterson
+*/
+
 #include "HashADT.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+
+#define UNUSED(x) (void)(x)
 
 
 char *strdup(const char *str);
@@ -10,33 +21,41 @@ char *strdup(const char *str);
 int num_accounts = 0;
 int num_friendships = 0;
 
-// Define a structure to represent a person
+// Struct representation of a person in Amici
 typedef struct person_s {
-    char *name;                 // Name of the person
-    char *handle;               // Handle of the person
-    struct person_s **friends;  // Dynamic collection of friends
-    size_t friend_count;        // Current number of friends
-    size_t max_friends;         // Current limit on friends
+    char *name;                 
+    char *handle;              
+    struct person_s **friends;  
+    size_t friend_count;        
+    size_t max_friends;         
 } person_t;
 
-// Function to initialize a person structure
+
+/*
+*  (person_t initializePerson(const char *name, const char *handle))
+*
+*  Initializes a new person with the given name and handle, allocating 
+*  memory for the person structure and duplicating name and handle strings.
+*  
+*  @param name: The name of the person.
+*  @param handle: The handle or username of the person.
+*  @return: A pointer to the newly initialized person.
+*/
 person_t *initializePerson(const char *name, const char *handle) {
     person_t *newPerson = (person_t *)malloc(sizeof(person_t));
     if (newPerson == NULL) {
-        perror("Memory allocation error");
+        perror("Memory allocation error"); 
         exit(EXIT_FAILURE);
     }
 
-    // Allocate memory for name and handle
     newPerson->name = strdup(name);
     newPerson->handle = strdup(handle);
 
     if (newPerson->name == NULL || newPerson->handle == NULL) {
-        perror("Memory allocation error");
+        perror("Memory allocation error"); 
         exit(EXIT_FAILURE);
     }
 
-    // Initialize friends array
     newPerson->friends = NULL;
     newPerson->friend_count = 0;
     newPerson->max_friends = 0;
@@ -44,10 +63,36 @@ person_t *initializePerson(const char *name, const char *handle) {
     return newPerson;
 }
 
+/*
+*  (size_t findFriendIndex(person_t *person, person_t *friend))
+*
+*  Finds the index of a friend within the person's friends array.
+*  
+*  @param person: The person whose friends are being searched.
+*  @param friend: The friend whose index is to be found.
+*  @return: The index of the friend in the person's friends array, 
+*           or SIZE_MAX if the friend is not found.
+*/
+size_t findFriendIndex(person_t *person, person_t *friend) {
+    for (size_t i = 0; i < person->friend_count; ++i) {
+        if (person->friends[i] == friend) {
+            return i;
+        }
+    }
+    return SIZE_MAX; // if this is returned, there was no friend found
+}
 
-// Function to add a friend to a person's list
+/*
+*  (void addFriend(person_t *person, person_t *friend))
+*
+*  Adds a friend to the person's friends array. Resizes the array if necessary.
+*  
+*  @param person: The person to whom the friend is being added.
+*  @param friend: The person being added as a friend.
+*/
 void addFriend(person_t *person, person_t *friend) {
-    // Check if the friend array needs resizing
+
+    // check if the friend array needs resizing
     if (person->friend_count == person->max_friends) {
         size_t new_size = person->max_friends == 0 ? 1 : 2 * person->max_friends;
         person->friends = (person_t **)realloc(person->friends, new_size * sizeof(person_t *));
@@ -58,59 +103,40 @@ void addFriend(person_t *person, person_t *friend) {
         person->max_friends = new_size;
     }
 
-    // Add the friend to the array
     person->friends[person->friend_count++] = friend;
 }
 
-size_t findFriendIndex(person_t *person, person_t *friend) {
-    for (size_t i = 0; i < person->friend_count; ++i) {
-        if (person->friends[i] == friend) {
-            return i;
-        }
-    }
-    return SIZE_MAX; // Indicates friend not found
-}
-
+/*
+*  (void unfriend(person_t *person, person_t *enemy))
+*
+*  Removes a friend (enemy) from the person's friends array.
+*  
+*  @param person: The person from whom the friend is being removed.
+*  @param enemy: The person being unfriended.
+*/
 void unfriend(person_t *person, person_t *enemy){
 
     size_t enemy_index = findFriendIndex(person, enemy);;
 
-
-
-    
     if (enemy_index != SIZE_MAX) {
-        // Move the last friend to the removed friend's position
         person->friends[enemy_index] = person->friends[person->friend_count - 1];
 
-        // Decrement the friend count
         --person->friend_count;
     } else {
-        // Friend not found
+            return;
     }
 }
 
+/*
+*  (size_t hash(const void *key))
+*
+*  Computes and returns a hash value for the provided key (handle).
+*  
+*  @param key: The key (handle) for which the hash value is computed.
+*  @return: The computed hash value.
+*/
+size_t hash(const void *key) {
 
-
-// Function to free memory allocated for a person and their friends
-void freePerson(person_t *person) {
-    free(person->name);
-    free(person->handle);
-
-    // Free each friend individually
-    for (size_t i = 0; i < person->friend_count; ++i) {
-        freePerson(person->friends[i]);
-    }
-
-    // Free the friends array
-    free(person->friends);
-
-    // Finally, free the person structure itself
-    free(person);
-}
-
-size_t hash_person(const void *key) {
-    // Implement your hash function for person handles
-    // Example: using a simple hash function for strings
     const char *handle = (const char *)key;
     size_t hash = 0;
     while (*handle) {
@@ -119,26 +145,59 @@ size_t hash_person(const void *key) {
     return hash;
 }
 
-bool equals_person(const void *key1, const void *key2) {
-    // Implement your equality comparison for person handles
+/*
+*  (bool equals(const void *key1, const void *key2))
+*
+*  Compares two keys (handles) for equality.
+*  
+*  @param key1: The first key to be compared.
+*  @param key2: The second key to be compared.
+*  @return: True if the keys are equal, false otherwise.
+*/
+bool equals(const void *key1, const void *key2) {
     return strcmp((const char *)key1, (const char *)key2) == 0;
 }
 
-void delete_person(void *key, void *value) {
-    // Implement your deletion function for person handles
-    // Note: Depending on your memory management, you may need to free the 'value' as well.
-    person_t *person = (person_t *)value;
-    free(person->name);
-    free(person->handle);
-    free(person->friends);
-    free(person);
+/*
+*  (void delete(void *key, void *value))
+*
+*  Placeholder function for key-value deletion in the hash table. 
+*  Uses UNUSED macro.
+*  
+*  @param key: The key to be deleted.
+*  @param value: The associated value to be deleted.
+*/
+void delete(void *key, void *value) {
+    UNUSED(key);    // use of UNUSED macro because I did not 
+    UNUSED(value);  
 }
 
-void print_person(const void *key, const void *value) {
-    // Implement your print function for person handles
-    printf("Person: %s\n", (const char *)key);
+/*
+*  (void print(const void *key, const void *value))
+*
+*  Placeholder function for printing key-value pairs in the hash table. 
+*  Uses UNUSED macro.
+*  
+*  @param key: The key to be printed.
+*  @param value: The associated value to be printed.
+*/
+void print(const void *key, const void *value) {
+    UNUSED(key);
+    UNUSED(value);
+    // I realized near the end that I was a different method to print
+    // the people within amici so got rid of this method  
+    // instead (printAmici)
+
+    // I have in processCommand what I would have here
 }
 
+/*
+*  (void printAmici(person_t *person))
+*
+*  Prints the details of a person, including handle, name, and the list of friends.
+*  
+*  @param person: The person whose details are to be printed.
+*/
 void printAmici(person_t *person) {
     printf("%s (%s) has %zu friends\n", person->handle, person->name, person->friend_count);
 
@@ -147,6 +206,15 @@ void printAmici(person_t *person) {
     }
 }
 
+/*
+*  (void printFriendCount(const char *handle, const char *name, size_t friendCount))
+*
+*  Prints the friend count for a person with the specified handle and name.
+*  
+*  @param handle: The handle of the person.
+*  @param name: The name of the person.
+*  @param friendCount: The number of friends the person has.
+*/
 void printFriendCount(const char *handle, const char *name, size_t friendCount) {
     if (friendCount == 0) {
         printf("%s (%s) has no friends\n", handle, name);
@@ -155,7 +223,24 @@ void printFriendCount(const char *handle, const char *name, size_t friendCount) 
     }
 }
 
+/*
+*  (void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, char *arg3))
+*
+*  Processes the given command along with its arguments and performs the corresponding actions 
+*  in the social media system.
+*  
+*  @param amici_table: The hash table storing the people in the social media system.
+*  @param command: The command to be processed (add, print, friend, unfriend, size, 
+*                  stats, init, quit).
+*  @param arg1: The first argument associated with the command.
+*  @param arg2: The second argument associated with the command.
+*  @param arg3: The third argument associated with the command.
+*/
 void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, char *arg3) {
+
+    /* 
+    // Prints out each argument for debug usage
+
     printf("Debug: Processing command - Command: %s", command);
 
     if (arg1[0] != '\0') {
@@ -169,9 +254,9 @@ void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, 
     if (arg3[0] != '\0') {
         printf(", Arg3: %s", arg3);
     }
+    */
 
     printf("\n");
-
    
     if (strcmp(command, "add") == 0) {
         if (arg1[0] == '\0' || arg2[0] == '\0' || arg3[0] == '\0') {
@@ -179,23 +264,27 @@ void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, 
             return;
         }
 
-    const person_t *existing_person = ht_get(amici_table, arg3);
+        const person_t *existing_person = ht_get(amici_table, arg3);
         if (existing_person != NULL) {
             fprintf(stderr, "error: handle \"%s\" is already in use\n", arg3);
             return;
         }
 
-    num_accounts ++;
-    char *full_name = malloc(strlen(arg1) + strlen(arg2) + 2);
-    strcpy(full_name, arg1);
-    strcat(full_name, " ");
-    strcat(full_name, arg2);
+        num_accounts ++;
+        char *full_name = malloc(strlen(arg1) + strlen(arg2) + 2);
+        strcpy(full_name, arg1);
+        strcat(full_name, " ");
+        strcat(full_name, arg2);
 
+        person_t *new_person = initializePerson(full_name, arg3);
+        ht_put(amici_table, new_person->handle, new_person);
 
-    person_t *new_person = initializePerson(full_name, arg3);
-    ht_put(amici_table, new_person->handle, new_person);
+        free(full_name);
+
+        return;
 
     } if (strcmp(command, "print")==0){
+
         if (arg1[0] == '\0') {
             fprintf(stderr, "error: print command requires a handle argument\n");
             return;
@@ -209,11 +298,13 @@ void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, 
 
         person_t *person = (person_t *)const_person;
 
-
         ht_dump(amici_table, true);
         printf("\n");
         printf("\n");
         printAmici(person);
+
+        return;
+
     } if(strcmp(command, "friend")==0){
 
 
@@ -233,13 +324,19 @@ void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, 
         person_t *requester = (person_t *)const_requester;
         person_t *receiver = (person_t *)const_receiver;
 
+        if (findFriendIndex(requester, receiver) != SIZE_MAX) {
+            printf("%s and %s are already friends\n", requester->handle, receiver->handle);
+            return;
+        }
+
         addFriend(requester, receiver);
         addFriend(receiver, requester);
 
-        // NOTE: NEED TO CHECK IF FRIENDSHIPS ALREADY EXIST
-
         printf("%s and %s are now friends\n", requester->handle, receiver->handle);
         num_friendships ++;
+
+        return;
+
     } if(strcmp(command, "unfriend")==0){
 
         if (arg1[0] == '\0' || arg2[0] == '\0') {
@@ -260,8 +357,10 @@ void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, 
 
         unfriend(requester, receiver);
         unfriend(receiver, requester);
-    }
-    if(strcmp(command, "size")==0){
+
+        return;
+
+    } if(strcmp(command, "size")==0){
 
         if (arg1[0] == '\0') {
             fprintf(stderr, "error: size command requires a handle argument\n");
@@ -279,40 +378,65 @@ void processCommand(HashADT amici_table, char *command, char *arg1, char *arg2, 
 
         printFriendCount(person->handle, person->name, person->friend_count);
         num_friendships --;
+
+        return;
+
     } if (strcmp(command, "stats") == 0) {
         printf("Statistics: ");
-        printf("%d %s %d %s\n", num_accounts, num_accounts == 1 ? "person" : "people",num_friendships, num_friendships == 1 ? "friendship" : "friendships");
-    } if (strcmp(command, "init") == 0) {
-        // Implement initialization logic here
+        printf("%d %s %d %s\n", num_accounts, num_accounts == 1 ? "person" : "people",num_friendships, 
+        num_friendships == 1 ? "friendship" : "friendships");
 
-        ht_destroy(amici_table);
-        num_accounts = 0;
+        return;
+
+    } if (strcmp(command, "init") == 0) {
+
+        // ht_destroy(amici_table) - no need and I'm not completely sure why
+        // (Valgrind gives me errors when I try to destroy it)
+
+        num_accounts = 0;        
         num_friendships = 0;
+
         printf("System re-initialized\n");
+
+        return;
+
     } if (strcmp(command, "quit") == 0) {
         printf("Exiting...\n");
-        ht_destroy(amici_table);
+
+        //ht_destroy(amici_table);
+
         exit(EXIT_SUCCESS);
+    }
+    else {
+
+        fprintf(stderr, "error: command not recognized\n");
+
+        return;
     }
 
 }
 
-
-
-
+/*
+*  (int main(int argc, char *argv[]))
+*
+*  The main function responsible for initializing the social media system, 
+*  reading commands from a file or user input, and performing 
+*  corresponding actions.
+*  
+*  @param argc: The number of command-line arguments.
+*  @param argv: An array containing the command-line arguments.
+*  @return: The exit status of the program.
+*/
 int main(int argc, char *argv[]) {
-    HashADT amici_table = ht_create(hash_person, equals_person, print_person, delete_person);
 
+    HashADT amici_table = ht_create(hash, equals, print, delete);
 
-    // Check the number of command-line arguments
     if (argc < 1 || argc > 2) {
         fprintf(stderr, "error: usage: %s [datafile]\n", argv[0]);
         return EXIT_FAILURE;
     }
 
-    // Check if a datafile is provided
-    if (argc == 2) {
-        // Process commands from the datafile
+    if (argc == 2) { // if data file is present in command line
         FILE *file = fopen(argv[1], "r");
         if (file == NULL) {
             perror("error");
@@ -327,17 +451,13 @@ int main(int argc, char *argv[]) {
 
             printf("\n");
 
-            memset(command, 0, sizeof(command));
-            memset(arg1, 0, sizeof(arg1));
+            memset(command, 0, sizeof(command)); // use of memset so there is no need to free
+            memset(arg1, 0, sizeof(arg1));       // these values
             memset(arg2, 0, sizeof(arg2));
             memset(arg3, 0, sizeof(arg3));
 
-            // Parse the input into command and arguments
             if (sscanf(input, "%255s %255s %255s %255s", command, arg1, arg2, arg3) >= 1) { // buffer overflow
                 processCommand(amici_table, command, arg1, arg2, arg3);
-
-                // Free allocated memory
-                
        
             } else {
                 fprintf(stderr, "error: Unable to parse input\n");
@@ -346,7 +466,7 @@ int main(int argc, char *argv[]) {
 
         fclose(file);
     } else {
-        // Process commands from the user input
+        // process commands from the user input
         char input[1024];
 
         printf("Amici> ");
@@ -354,23 +474,15 @@ int main(int argc, char *argv[]) {
         while (fgets(input, sizeof(input), stdin) != NULL) {
             char command[256], arg1[256], arg2[256], arg3[256];
 
-
             memset(command, 0, sizeof(command));
             memset(arg1, 0, sizeof(arg1));
             memset(arg2, 0, sizeof(arg2));
             memset(arg3, 0, sizeof(arg3));
-            // Parse the input into command and arguments
-            if (sscanf(input, "%255s %255s %255s %255s", command, arg1, arg2, arg3) >= 1) {
-                // Call the processCommand function with the parsed values
-                processCommand(amici_table, command, arg1, arg2, arg3);
 
-                // Free allocated memory
-                /*
-                free(command);
-                free(arg1);
-                free(arg2);
-                free(arg3);
-                */
+            if (sscanf(input, "%255s %255s %255s %255s", command, arg1, arg2, arg3) >= 1) {
+
+                processCommand(amici_table, command, arg1, arg2, arg3);
+              
             } else {
                 fprintf(stderr, "error: Unable to parse input\n");
             }
