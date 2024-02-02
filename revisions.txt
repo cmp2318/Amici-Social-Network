@@ -1,0 +1,23 @@
+commit cb953d8a9e3d5d8cc511fac8cffcce1d2ea62b2b
+Author: Connor M Patterson <cmp2318@rit.edu>
+Date:   Thu Nov 30 14:44:27 2023 -0500
+
+    finalized (I thknk)
+
+commit c25eec3484d74c80188987261bfe923de2b3d087
+Author: Connor M Patterson <cmp2318@rit.edu>
+Date:   Wed Nov 29 17:56:16 2023 -0500
+
+    working edit
+
+commit be600f317e695de7eb7d547bad44b47850fa050b
+Author: Connor M Patterson <cmp2318@rit.edu>
+Date:   Wed Nov 29 15:10:18 2023 -0500
+
+    working edit
+
+commit 5738d80663b865855adc72cefdb5ef825535fcf7
+Author: Connor M Patterson <cmp2318@rit.edu>
+Date:   Tue Nov 28 14:48:47 2023 -0500
+
+    working edit
